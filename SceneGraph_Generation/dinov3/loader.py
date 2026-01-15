@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoImageProcessor, AutoModel
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 import os
 from torchvision.transforms import v2
@@ -48,11 +48,10 @@ def load_image_paths(image_folder):
     return image_paths
 
 class SatelliteDataset(Dataset):
-    def __init__(self, image_paths, processor, transform=None, patch_size=(128, 128)):
+    def __init__(self, image_paths, transform=None, patch_size=(128, 128)):
         super().__init__()
         self.image_paths = image_paths
         self.transform = transform
-        self.processor = processor
         self.patch_size = patch_size
 
     def __len__(self):

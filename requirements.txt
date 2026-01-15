@@ -1,3 +1,7 @@
 huggingface-hub
 transformers
 accelerate
+sentinelhub
+Pillow
+rasterio
+scipy

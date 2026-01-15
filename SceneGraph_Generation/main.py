@@ -10,7 +10,7 @@ if __name__ == "__main__":
     image_paths = load_image_paths(image_folder)
     dino_module = FeatureExtractor(model)
     transform = make_transform()
-    dataset = SatelliteDataset(image_paths, processor, transform, patch_size=(256, 256))
+    dataset = SatelliteDataset(image_paths, transform, patch_size=(256, 256))
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
     for batch in dataloader:
         batch_size, num_patches, channels, patch_height, patch_width = batch['pixel_values'].shape

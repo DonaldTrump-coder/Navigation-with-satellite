@@ -81,5 +81,5 @@ def process(img: np.ndarray):
         return gamma_correction(img)
     elif METHOD == "Log":
         return log_transform(img)
-    else:
-        pass
+    elif METHOD == "None":
+        return img

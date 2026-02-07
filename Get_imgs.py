@@ -11,18 +11,18 @@ if __name__ == "__main__":
     end_time = '2025-06-12'
     downloader = satellite_img_requester(ID, secret)
 
-    bbox_list = split_bbox(bbox, 5)
+    bbox_list = split_bbox(bbox, 8)
     for i, bbox in enumerate(bbox_list):
         downloader.set_bounding_box(bbox[0], bbox[1], bbox[2], bbox[3])
-        downloader.set_resolution(8)
+        downloader.set_resolution(4)
         downloader.set_time_interval(start_time, end_time)
         img, bbox = downloader.get_image()
         cropper = Cropping()
         cropper.crop_image_array(
             img = img,
             bbox = bbox,
-            crop_height = 512,
-            crop_width = 512
+            crop_height = 640,
+            crop_width = 640
         )
         folder_path = Path(f"./data/Sentinel/{region}")
         folder_path.mkdir(parents=True, exist_ok=True)

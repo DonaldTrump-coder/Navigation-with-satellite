@@ -4,6 +4,8 @@ from rasterio.transform import from_origin
 import rasterio
 import os
 from Satellite_img.histotools import process
+from rasterio.transform import array_bounds
+from PIL import Image
 
 def split_bbox(bbox, n):
     min_L, min_B, max_L, max_B = bbox
@@ -41,6 +43,7 @@ class Cropping:
                          crop_height: int,
                          crop_width: int,
                          ):
+        self.img_list = []
         min_L, min_B, max_L, max_B = bbox
 
         img_height, img_width = img.shape[:2]
@@ -58,8 +61,6 @@ class Cropping:
 
         B_range = max_B - min_B
         L_range = max_L - min_L
-        pixel_B = B_range / new_height
-        pixel_L = L_range / new_width # B and L of a pixel in downsampled image
 
         for i in range(0, new_height, crop_height):
             for j in range(0, new_width, crop_width):
@@ -72,6 +73,46 @@ class Cropping:
                 cropped_img = process(cropped_img)
 
                 self.img_list.append(GeoTIFF(cropped_img, [crop_min_L, crop_min_B, crop_max_L, crop_max_B]))
+
+    def crop_image_file(self, tiff_file: str, crop_height: int, crop_width: int):
+        self.img_list = []
+        with rasterio.open(tiff_file) as src:
+            transform = src.transform
+            height, width = src.height, src.width
+            bands = src.count-1
+            min_L, min_B, max_L, max_B = array_bounds(
+                height, width, transform
+            )
+            bbox = [min_L, min_B, max_L, max_B]
+
+            new_height = int((height // crop_height) * crop_height)
+            new_width = int((width // crop_width) * crop_width)
+            # height and width of the downsampled image
+            img = src.read()[:3]
+            img_ds = np.zeros((bands, new_height, new_width), dtype=img.dtype)
+
+            for c in range(bands):
+                img_c = Image.fromarray(img[c])
+                img_c = img_c.resize((new_width, new_height), Image.BILINEAR)
+                img_ds[c] = np.array(img_c)
+
+            B_range = max_B - min_B
+            L_range = max_L - min_L
+            
+            for i in range(0, new_height, crop_height):
+                for j in range(0, new_width, crop_width):
+                    crop_min_B = max_B - ((i + crop_height) / new_height) * B_range
+                    crop_max_B = max_B - (i / new_height) * B_range
+                    crop_min_L = min_L + (j / new_width) * L_range
+                    crop_max_L = min_L + ((j + crop_width) / new_width) * L_range
+
+                    cropped_img = img_ds[:, int(i):int(i+crop_height), int(j):int(j+crop_width)]
+                    cropped_img = np.transpose(cropped_img, (1, 2, 0))
+                    #cropped_img = process(cropped_img)
+                    self.img_list.append(GeoTIFF(cropped_img,
+                                                 [crop_min_L, crop_min_B, crop_max_L, crop_max_B]
+                                                 )
+                                                 )
 
     def save_cropped_images(self, output_dir: str):
         for i, img in enumerate(self.img_list):

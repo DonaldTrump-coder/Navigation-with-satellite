@@ -55,3 +55,48 @@ def resizer(features, # [batch_size x num_of_patches x num_of_vectors_in_patch_h
         new_features[:, y:y+num_vectors_height, x:x+num_vectors_width, :] = patch
 
     return new_features # [batch_size, height, width, vector_dim]
+
+def resize_origin(features, # [batch_size, num_patches, channels, patch_height, patch_width]
+                  indices # [batch_size x num_of_patches x 2]
+                  ):
+    batch_size, num_patches, channels, patch_height, patch_width = features.shape
+    max_y = int(indices[:, :, 0].max().item()) # max y index
+    max_x = int(indices[:, :, 1].max().item()) # max x index
+    
+    height = max_y + patch_height
+    width = max_x + patch_width
+    
+    new_features = torch.zeros(batch_size, channels, height, width).to(features.device)
+    y_coords, x_coords = indices[:, :, 0], indices[:, :, 1]  # [batch_size x num_of_patches] [batch_size x num_of_patches]
+    
+    y_coords = y_coords.unsqueeze(2).unsqueeze(3)
+    x_coords = x_coords.unsqueeze(2).unsqueeze(3) # [batch_size, num_of_patches, 1, 1]
+    
+    for i in range(num_patches):
+        y = (y_coords[:, i]).to(torch.int)
+        x = (x_coords[:, i]).to(torch.int) # [batch_size, 1, 1]
+        
+        patch = features[:, i] # [batch_size, channels, patch_height, patch_width]
+        new_features[:, :, y:y+patch_height, x:x+patch_width] = patch
+    
+    return new_features # [batch_size, channels, height, width]
+
+def splitter(features, # [batch_size, channels, height, width]
+             indices, # [batch_size x num_of_patches x 2]
+             patch_height, # int
+             patch_width, # int
+             ):
+    batch_size, channels, height, width = features.shape
+    batch_size, num_of_patches, _ = indices.shape
+    new_features = torch.zeros(batch_size, num_of_patches, channels, patch_height, patch_width).to(features.device)
+    
+    y_coords, x_coords = indices[:, :, 0], indices[:, :, 1]  # [batch_size x num_of_patches] [batch_size x num_of_patches]
+    
+    for i in range(num_of_patches):
+        y = (y_coords[:, i]).to(torch.int)
+        x = (x_coords[:, i]).to(torch.int) # [batch_size, 1, 1]
+        
+        patch = features[:, :, y:y+patch_height, x:x+patch_width] # [batch_size, channels, patch_height, patch_width]
+        new_features[:, i] = patch
+    
+    return new_features # [batch_size, num_of_patches, channels, patch_height, patch_width]

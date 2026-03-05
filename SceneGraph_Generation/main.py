@@ -3,7 +3,8 @@ from dinov3.feature_extractor import FeatureExtractor
 from torch.utils.data import DataLoader
 import torch
 from modules.Expander import Expander, resizer
-from Scene_graph_generator import Scene_graph_generator
+from Scene_graph_generator import EntityDetector
+from visualizer.features_visualizer import FeaturesVisualizer
 
 if __name__ == "__main__":
     if torch.cuda.is_available():
@@ -17,8 +18,11 @@ if __name__ == "__main__":
     transform = make_transform()
     dataset = SatelliteDataset(image_paths, transform, patch_size=(256, 256))
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    
+    dino_dim = 1024
 
-    model = Scene_graph_generator(model_path).to(device=device)
+    model = EntityDetector(model_path, dino_dim).to(device=device)
 
     for batch in dataloader:
         model(batch)
+        break

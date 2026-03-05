@@ -11,8 +11,6 @@ def resize_to_nearest_multiple_of_n(image, n):
     
     new_width = int(round(width / n) * n)
     new_height = int(round(height / n) * n)
-    #new_width = 256
-    #new_height = 256
     
     return image.resize((new_width, new_height), Image.LANCZOS)
 

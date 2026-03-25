@@ -6,3 +6,6 @@ Pillow
 rasterio
 scipy
 matplotlib
+opencv-python
+open-clip-torch
+tensorboard

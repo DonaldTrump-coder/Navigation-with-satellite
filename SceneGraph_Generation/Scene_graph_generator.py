@@ -1,9 +1,10 @@
 import torch.nn as nn
-from dinov3.feature_extractor import FeatureExtractor
-from dinov3.loader import model_loader
-from modules.Expander import Expander, resizer, resize_origin, splitter
+from SceneGraph_Generation.dinov3.feature_extractor import FeatureExtractor
+from SceneGraph_Generation.dinov3.loader import model_loader
+from SceneGraph_Generation.modules.Expander import Expander, resizer, resize_origin, splitter
 import torch
 import torch.nn.functional as F
+#from visualizer.features_visualizer import FeaturesVisualizer
 
 class EntityDetector(nn.Module):
     def __init__(self, dino_path, vector_dim):
@@ -46,7 +47,7 @@ class EntityDetector(nn.Module):
     def forward(self, x):
         self.device = self.get_device()
         
-        x = {key: value.to(self.device) for key, value in x.items()}
+        x = {key: value.to(self.device) if isinstance(value, torch.Tensor) else value for key, value in x.items()}
         batch_size, num_patches, channels, patch_height, patch_width = x['pixel_values'].shape
         x['pixel_values'] = resize_origin(x['pixel_values'], x['indices'])
         # restored x
@@ -96,9 +97,8 @@ class EntityDetector(nn.Module):
         original_features = self.connect_conv2(original_features)
         features = features + original_features # residual connection [batch_size, vector_dim // 8, height, width]
         
-        features = torch.concatenate([features, conved_image, original_image], dim=1)
+        features = torch.concatenate([features, conved_image, original_image], dim=1) # [batch_size, vector_dim // 8 + 3 + 3, height, width] features map
         
-        logits = self.classifier(features)
-        print(logits.shape)
+        logits = self.classifier(features) # [batch_size, 1, height, width]
         
         return logits, features

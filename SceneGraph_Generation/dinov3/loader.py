@@ -12,7 +12,7 @@ def resize_to_nearest_multiple_of_n(image, n, interpolation=Image.LANCZOS):
     new_width = int(round(width / n) * n)
     new_height = int(round(height / n) * n)
     
-    return image.resize((new_width, new_height), interpolation=interpolation)
+    return image.resize((new_width, new_height), resample=interpolation)
 
 def make_transform():
     resize_to_16 = lambda image: resize_to_nearest_multiple_of_n(image, 256)

@@ -6,13 +6,13 @@ import os
 from torchvision.transforms import v2
 import numpy as np
 
-def resize_to_nearest_multiple_of_n(image, n):
+def resize_to_nearest_multiple_of_n(image, n, interpolation=Image.LANCZOS):
     width, height = image.size
     
     new_width = int(round(width / n) * n)
     new_height = int(round(height / n) * n)
     
-    return image.resize((new_width, new_height), Image.LANCZOS)
+    return image.resize((new_width, new_height), interpolation=interpolation)
 
 def make_transform():
     resize_to_16 = lambda image: resize_to_nearest_multiple_of_n(image, 256)
@@ -29,6 +29,15 @@ def make_transform():
         to_tensor,
         to_float,
         normalize,
+    ])
+    
+def make_label_transform():
+    resize_to_16 = lambda image: resize_to_nearest_multiple_of_n(image, 256, interpolation=Image.NEAREST)
+    to_tensor = v2.ToImage()
+    
+    return v2.Compose([
+        resize_to_16,
+        to_tensor,
     ])
 
 def model_loader(model_path):
@@ -108,6 +117,8 @@ class SatelliteDataset(Dataset):
         label = Image.open(label_path).convert("L")
         label = np.array(label)
         label = (label > 0).astype(np.uint8)
+        label = Image.fromarray(label)
+        label = make_label_transform(label)
         
         if self.transform:
             image = self.transform(image)

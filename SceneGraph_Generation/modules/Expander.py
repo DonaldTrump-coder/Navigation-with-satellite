@@ -34,25 +34,23 @@ def resizer(features, # [batch_size x num_of_patches x num_of_vectors_in_patch_h
             indices # [batch_size x num_of_patches x 2]
             ):
     batch_size, num_of_patches, num_vectors_height, num_vectors_width, vector_dim = features.shape
+    indices = (indices // 16).long()
 
-    max_y = int(indices[:, :, 0].max().item() / 16) # max y index
-    max_x = int(indices[:, :, 1].max().item() / 16) # max x index
+    max_y = int(indices[:, :, 0].max().item()) # max y index
+    max_x = int(indices[:, :, 1].max().item()) # max x index
 
     height = max_y + num_vectors_height
     width = max_x + num_vectors_width
 
     # create a new tensor with zeros
     new_features = torch.zeros(batch_size, height, width, vector_dim).to(features.device)
-    y_coords, x_coords = indices[:, :, 0], indices[:, :, 1]  # [batch_size x num_of_patches] [batch_size x num_of_patches]
 
-    y_coords = y_coords.unsqueeze(2).unsqueeze(3)
-    x_coords = x_coords.unsqueeze(2).unsqueeze(3) # [batch_size, num_of_patches, 1, 1]
-
-    for i in range(num_of_patches):
-        y = (y_coords[:, i]/16).to(torch.int)
-        x = (x_coords[:, i]/16).to(torch.int) # [batch_size, 1, 1]
-        patch = features[:, i]
-        new_features[:, y:y+num_vectors_height, x:x+num_vectors_width, :] = patch
+    for b in range(batch_size):
+        for i in range(num_of_patches):
+            y = int(indices[b, i, 0])
+            x = int(indices[b, i, 1]) # [batch_size, 1, 1]
+            patch = features[b, i]
+            new_features[b, y:y+num_vectors_height, x:x+num_vectors_width, :] = patch
 
     return new_features # [batch_size, height, width, vector_dim]
 

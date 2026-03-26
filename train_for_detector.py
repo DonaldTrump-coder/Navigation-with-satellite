@@ -111,7 +111,7 @@ def main():
                 new_path = p.with_suffix(".npy")
                 folder = new_path.parent.name
                 filename = new_path.name
-                save_dir = os.path.join('./output', folder)
+                save_dir = os.path.join('./outputs', folder)
                 os.makedirs(save_dir, exist_ok=True)
                 save_path = os.path.join(save_dir, filename)
                 feature = features[i]

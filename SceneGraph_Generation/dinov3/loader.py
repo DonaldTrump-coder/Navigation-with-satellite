@@ -118,7 +118,7 @@ class SatelliteDataset(Dataset):
         label = np.array(label)
         label = (label > 0).astype(np.uint8)
         label = Image.fromarray(label)
-        label = make_label_transform(label)
+        label = make_label_transform()(label)
         
         if self.transform:
             image = self.transform(image)

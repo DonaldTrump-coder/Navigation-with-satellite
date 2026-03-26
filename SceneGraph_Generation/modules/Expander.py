@@ -84,16 +84,15 @@ def splitter(features, # [batch_size, channels, height, width]
              patch_width, # int
              ):
     batch_size, channels, height, width = features.shape
-    batch_size, num_of_patches, _ = indices.shape
+    _, num_of_patches, _ = indices.shape
     new_features = torch.zeros(batch_size, num_of_patches, channels, patch_height, patch_width).to(features.device)
     
-    y_coords, x_coords = indices[:, :, 0], indices[:, :, 1]  # [batch_size x num_of_patches] [batch_size x num_of_patches]
-    
-    for i in range(num_of_patches):
-        y = (y_coords[:, i]).to(torch.int)
-        x = (x_coords[:, i]).to(torch.int) # [batch_size, 1, 1]
-        
-        patch = features[:, :, y:y+patch_height, x:x+patch_width] # [batch_size, channels, patch_height, patch_width]
-        new_features[:, i] = patch
+    for b in range(batch_size):
+        for i in range(num_of_patches):
+            y = int(indices[b, i, 0])
+            x = int(indices[b, i, 1])
+            
+            patch = features[b, :, y:y+patch_height, x:x+patch_width]
+            new_features[b, i] = patch
     
     return new_features # [batch_size, num_of_patches, channels, patch_height, patch_width]

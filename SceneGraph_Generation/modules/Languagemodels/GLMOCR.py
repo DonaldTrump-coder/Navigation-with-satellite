@@ -9,6 +9,7 @@ if __name__ == '__main__':
     model_path = 'D:/Projects/Navigation-with-satellite/SceneGraph_Generation/models/GLM-OCR'
     model = load_ocr_model(model_path)
     processor = AutoProcessor.from_pretrained(model_path)
+    
     language_model = model.model.language_model
     lm_head = model.lm_head
     device = next(model.parameters()).device

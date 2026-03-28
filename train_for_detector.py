@@ -14,6 +14,7 @@ def main():
     batch_size = 1
     epochs = 10
     split_ratio = 0.8
+    lr = 1e-4
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:
@@ -37,7 +38,7 @@ def main():
     
     model = EntityDetector(model_path, dino_dim).to(device=device)
     
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
     
     log_dir='./log/detector'

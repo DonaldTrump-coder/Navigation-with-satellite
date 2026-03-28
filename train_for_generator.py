@@ -10,6 +10,7 @@ from SceneGraph_Generation.modules.Entity_Generation.Entity_Generator import Ent
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
+from peft import LoraConfig, TaskType
 
 # json data:
 """
@@ -49,6 +50,7 @@ def main():
     roi_size = (256, 256)
     lr=1e-4
     max_length = 8 # max token length of entity labels
+    epochs = 10
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:
@@ -65,6 +67,15 @@ def main():
     
     features_folder = "./outputs"
     data_folder = "./data/Google"
+    
+    lora_config = LoraConfig(
+        r=8,
+        lora_alpha=16,
+        lora_dropout=0.1,
+        bias="none",
+        target_modules = ["q_proj", "v_proj"],
+        task_type=TaskType.CAUSAL_LM
+    )
     
     dino_dim = 1024
     
@@ -92,85 +103,167 @@ def main():
     train_samples = samples[:split_idx]
     test_samples = samples[split_idx:]
     model = Entity_Generator(vector_dim=dino_dim,
-                             ocrmodel=text_decoder
+                             ocrmodel=text_decoder,
+                             lora_config = lora_config
                              )
     encoder = Feature_Fuser(vector_dim=dino_dim, cnnmodel=cnn_model, vitmodel=vit_model)
-    optimizer = optim.AdamW(model.parameters(), lr=lr)
     
     # training
-    for scene in train_samples:
-        npy_path, tif_path, json_path = scene
-        encoder_dataset = Patches_dataset(npy_path,
-                                          tif_path,
-                                          json_path,
-                                          cnn_preprocess,
-                                          vit_preprocess,
-                                          roi_size
-                                          )
-        shapes = encoder_dataset.get_shapes()
-        patch_batch_size = encoder_dataset.__len__()
-        patch_dataloader = DataLoader(encoder_dataset, batch_size=patch_batch_size)
-        for batch in patch_dataloader:
-            image = batch["image"]
-            entity_feature = batch["entity_feature"]
-            entity_original = batch["entity_original"]
-            with torch.no_grad():
+    for epoch in range(epochs):
+        if epoch == 0: # first stage
+            model.set_train_stage("stage1")
+            optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
+            print("Training stage 1")
+        elif epoch == int(0.6 * epochs): # second stage
+            model.set_train_stage("stage2")
+            optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = lr * 0.1)
+            print("Training stage 2")
+        for scene in train_samples:
+            npy_path, tif_path, json_path = scene
+            encoder_dataset = Patches_dataset(npy_path,
+                                            tif_path,
+                                            json_path,
+                                            cnn_preprocess,
+                                            vit_preprocess,
+                                            roi_size
+                                            )
+            shapes = encoder_dataset.get_shapes()
+            patch_batch_size = encoder_dataset.__len__()
+            patch_dataloader = DataLoader(encoder_dataset, batch_size=patch_batch_size)
+            for batch in patch_dataloader:
+                image = batch["image"]
+                entity_feature = batch["entity_feature"]
+                entity_original = batch["entity_original"]
+                with torch.no_grad():
+                    fused_entity_features = encoder(entity_feature,
+                                                    entity_original,
+                                                    image)
+            
+            train_dataset = Patch_features_dataset(fused_entity_features,
+                                                shapes,
+                                                text_processor,
+                                                max_length = max_length
+                                                )
+            train_relation_dataset = Patches_relation_dataset(json_path,
+                                                            fused_entity_features,
+                                                            shapes
+                                                            )
+            
+            patch_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            patch_relation_loader = DataLoader(train_relation_dataset, batch_size=batch_size, shuffle=True)
+            num_steps = max(len(patch_loader), len(patch_relation_loader))
+            patch_loader = itertools.cycle(patch_loader)
+            patch_relation_loader = itertools.cycle(patch_relation_loader)
+            
+            for step in range(num_steps):
+                optimizer.zero_grad()
+                if step % 2 == 0:
+                    model.relation = False
+                    batch = next(patch_loader)
+                    fused_entity_features = batch["fused_entity_features"]
+                    input_ids = batch["input_ids"]
+                    attention_masks = batch["attention_mask"]
+                    labels = batch["labels"]
+                    offset_labels = batch["offset"]
+                    logits, offsets = model(fused_entity_features = fused_entity_features,
+                                            input_ids = input_ids,
+                                            attention_mask = attention_masks
+                                            )
+                    
+                    # loss for logits
+                    logits_loss = F.cross_entropy(
+                        logits.reshape(-1, logits.size(-1)),
+                        labels.reshape(-1),
+                        ignore_index=-100
+                    )
+                    
+                    # loss for offsets
+                    offset_loss = F.l1_loss(offsets, offset_labels)
+                    loss = logits_loss + offset_loss
+                else:
+                    model.relation = True
+                    batch = next(patch_relation_loader)
+                    fused_entity_features = batch["fused_entity_features"]
+                    label = batch["label"] # [batch]
+                    logits = model(fused_entity_features = fused_entity_features)
+                    relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
+                    loss = relation_loss
+                
+                loss.backward()
+                optimizer.step()
+                
+    # testing
+    model.eval()
+    total_logits_loss = 0.0
+    total_offset_loss = 0.0
+    total_relation_loss = 0.0
+    num_entity_batches = 0
+    num_relation_batches = 0
+    with torch.no_grad():
+        for scene in test_samples:
+            npy_path, tif_path, json_path = scene
+            encoder_dataset = Patches_dataset(npy_path,
+                                              tif_path,
+                                              json_path,
+                                              cnn_preprocess,
+                                              vit_preprocess,
+                                              roi_size)
+            shapes = encoder_dataset.get_shapes()
+            patch_batch_size = encoder_dataset.__len__()
+            patch_dataloader = DataLoader(encoder_dataset, batch_size=patch_batch_size)
+            for batch in patch_dataloader:
+                image = batch["image"]
+                entity_feature = batch["entity_feature"]
+                entity_original = batch["entity_original"]
                 fused_entity_features = encoder(entity_feature,
                                                 entity_original,
-                                                image)
-        
-        train_dataset = Patch_features_dataset(fused_entity_features,
-                                               shapes,
-                                               text_processor,
-                                               max_length = max_length
-                                               )
-        train_relation_dataset = Patches_relation_dataset(json_path,
-                                                          fused_entity_features,
-                                                          shapes
-                                                          )
-        
-        patch_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        patch_relation_loader = DataLoader(train_relation_dataset, batch_size=batch_size, shuffle=True)
-        num_steps = max(len(patch_loader), len(patch_relation_loader))
-        patch_loader = itertools.cycle(patch_loader)
-        patch_relation_loader = itertools.cycle(patch_relation_loader)
-        
-        for step in range(num_steps):
-            optimizer.zero_grad()
-            if step % 2 == 0:
-                model.relation = False
-                batch = next(patch_loader)
-                fused_entity_features = batch["fused_entity_features"]
-                input_ids = batch["input_ids"]
-                attention_masks = batch["attention_mask"]
-                labels = batch["labels"]
-                offset_labels = batch["offset"]
-                logits, offsets = model(fused_entity_features = fused_entity_features,
-                                        input_ids = input_ids,
-                                        attention_mask = attention_masks
-                                        )
+                                                image
+                                                )
                 
-                # loss for logits
-                logits_loss = F.cross_entropy(
-                    logits.reshape(-1, logits.size(-1)),
-                    labels.reshape(-1),
-                    ignore_index=-100
-                )
+                test_dataset = Patch_features_dataset(fused_entity_features,
+                                                      shapes,
+                                                      text_processor,
+                                                      max_length = max_length
+                                                      )
+                test_relation_dataset = Patches_relation_dataset(json_path,
+                                                             fused_entity_features,
+                                                             shapes)
                 
-                # loss for offsets
-                offset_loss = F.l1_loss(offsets, offset_labels)
-                loss = logits_loss + offset_loss
-            else:
-                model.relation = True
-                batch = next(patch_relation_loader)
-                fused_entity_features = batch["fused_entity_features"]
-                label = batch["label"] # [batch]
-                logits = model(fused_entity_features = fused_entity_features)
-                relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
-                loss = relation_loss
-            
-            loss.backward()
-            optimizer.step()
+                patch_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+                patch_relation_loader = DataLoader(test_relation_dataset, batch_size=batch_size, shuffle=False)
+                
+                for batch in patch_loader:
+                    model.relation = False
+                    fused_entity_features = batch["fused_entity_features"]
+                    input_ids = batch["input_ids"]
+                    attention_masks = batch["attention_mask"]
+                    labels = batch["labels"]
+                    offset_labels = batch["offset"]
+                    logits, offsets = model(fused_entity_features=fused_entity_features,
+                                            input_ids=input_ids,
+                                            attention_mask=attention_masks)
+                    logits_loss = F.cross_entropy(
+                        logits.reshape(-1, logits.size(-1)),
+                        labels.reshape(-1),
+                        ignore_index=-100
+                    )
+                    offset_loss = F.l1_loss(offsets, offset_labels)
+                    total_logits_loss += logits_loss.item()
+                    total_offset_loss += offset_loss.item()
+                    num_entity_batches += 1
+                    
+                for batch in patch_relation_loader:
+                    model.relation = True
+                    fused_entity_features = batch["fused_entity_features"]
+                    label = batch["label"]
+                    logits = model(fused_entity_features=fused_entity_features)
+                    relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
+                    total_relation_loss += relation_loss.item()
+                    num_relation_batches += 1
+                    
+    avg_logits_loss = total_logits_loss / max(num_entity_batches, 1)
+    avg_offset_loss = total_offset_loss / max(num_entity_batches, 1)
+    avg_relation_loss = total_relation_loss / max(num_relation_batches, 1)
     
 if __name__ == '__main__':
     main()

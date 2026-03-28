@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from SceneGraph_Generation.modules.Entity_Generation.Foundation_Encoders import CLIPEncoder
 import torch.nn.functional as F
+from peft import get_peft_model
 
 class Feature_Fuser(nn.Module):
     def __init__(self, vector_dim, cnnmodel, vitmodel):
@@ -59,12 +60,14 @@ class Feature_Fuser(nn.Module):
         return entity_features
 
 class Entity_Generator(nn.Module):
-    def __init__(self, vector_dim, ocrmodel):
+    def __init__(self, vector_dim, ocrmodel, lora_config):
         super(Entity_Generator, self).__init__()
         self.vector_dim = vector_dim
         self.feature_projection_head = nn.Linear(2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, 1536)
         self.language_model = ocrmodel.model.language_model
+        self.language_model = get_peft_model(self.language_model, lora_config)
         self.lm_head = ocrmodel.lm_head
+        self.lm_head.requires_grad_(False) # the head is frozen all the time
         
         self.offset_head = nn.Linear(2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, 2)
         
@@ -76,6 +79,23 @@ class Entity_Generator(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
+        
+        self.inferring = False # Inference mode
+        
+    def set_train_stage(self, stage = "stage1"):
+        if stage == "stage1":
+            for param in self.language_model.parameters():
+                param.requires_grad = False
+            for param in self.feature_projection_head.parameters():
+                param.requires_grad = True
+        else:
+            for param in self.feature_projection_head.parameters():
+                param.requires_grad = False
+            for name, param in self.language_model.named_parameters():
+                if "lora" in name.lower():
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
         
     def forward(self,
                 fused_entity_features, # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
@@ -93,7 +113,7 @@ class Entity_Generator(nn.Module):
             logits = self.relation_mlp(combined)
             return logits
         
-        if self.training:
+        if not self.inferring: # training and testing mode
             # training mode
             offsets = self.offset_head(entity_features) # [batch, 2]
             features_embed = self.feature_projection_head(entity_features) # [batch, 1536]
@@ -119,5 +139,5 @@ class Entity_Generator(nn.Module):
             
             return logits, offsets
         else:
-            # testing mode
+            # inference mode
             pass

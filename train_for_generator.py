@@ -107,6 +107,7 @@ def main():
                              ocrmodel=text_decoder,
                              lora_config = lora_config
                              ).to(device)
+    model.inferring = False # training and testing mode
     encoder = Feature_Fuser(vector_dim=dino_dim, cnnmodel=cnn_model, vitmodel=vit_model).to(device)
     
     # training

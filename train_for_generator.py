@@ -75,7 +75,7 @@ def main():
         lora_dropout=0.1,
         bias="none",
         target_modules = ["q_proj", "v_proj"],
-        task_type=TaskType.CAUSAL_LM
+        task_type=TaskType.FEATURE_EXTRACTION
     )
     
     dino_dim = 1024

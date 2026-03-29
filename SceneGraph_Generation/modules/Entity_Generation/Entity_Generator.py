@@ -140,4 +140,29 @@ class Entity_Generator(nn.Module):
             return logits, offsets
         else:
             # inference mode
-            pass
+            offsets = self.offset_head(entity_features) # [batch, 2]
+            features_embed = self.feature_projection_head(entity_features)  # [batch, 1536]
+            features_embed = features_embed.unsqueeze(1)  # [batch, 1, 1536]
+            
+            generated_ids = torch.empty((fused_entity_features.size(0), 0), dtype=torch.long, device=device)
+            
+            # generate for texts
+            for _ in range(self.max_length):
+                if generated_ids.size(1) > 0:
+                    input_embeds = self.language_model.embed_tokens(generated_ids)  # [batch, cur_len, 1536]
+                    input_embeds = torch.cat([features_embed, input_embeds], dim=1) # [batch, cur_len + 1, 1536]
+                else:
+                    input_embeds = features_embed # [batch, 1, 1536]
+                
+                attention_mask = torch.ones(input_embeds.size()[:2], device=device)  # [batch, cur_len+1]
+                
+                outputs = self.language_model(inputs_embeds=input_embeds,
+                                              attention_mask=attention_mask
+                                              )
+                next_token_logits = self.lm_head(outputs.last_hidden_state[:, -1, :])  # [batch, vocab_size]
+                next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)  # [batch, 1]
+                generated_ids = torch.cat([generated_ids, next_token], dim=1)
+                if (next_token == self.language_model.config.eos_token_id).all():
+                    break
+                
+            return offsets, generated_ids  # [batch, 2] [batch, generated_seq_len]

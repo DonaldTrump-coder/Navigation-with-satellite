@@ -86,6 +86,7 @@ class Entity_Generator(nn.Module):
         self.relation_norm = nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)
         self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True)
         self.relation_mlp = nn.Sequential(
+            nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
             nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
@@ -120,8 +121,9 @@ class Entity_Generator(nn.Module):
         entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
         
         if self.relation is True:
-            fused_entity_features = self.relation_norm(fused_entity_features)
-            #fused_entity_features, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
+            x = self.relation_norm(fused_entity_features)
+            attn_out, _ = self.relation_attention(x, x, x)
+            fused_entity_features = fused_entity_features + attn_out
             fused_entity_features = fused_entity_features.mean(dim=1)
             logits = self.relation_mlp(fused_entity_features)
             return logits

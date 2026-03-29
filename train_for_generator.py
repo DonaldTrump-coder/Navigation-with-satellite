@@ -127,6 +127,7 @@ def main():
     encoder = Feature_Fuser(vector_dim=dino_dim, cnnmodel=cnn_model, vitmodel=vit_model).to(device)
     
     # training
+    logits_loss = offset_loss = relation_loss = torch.tensor(0.0)
     for epoch in range(epochs):
         epoch_loss = 0
         if epoch == 0: # first stage

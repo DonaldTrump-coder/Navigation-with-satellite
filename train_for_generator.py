@@ -198,7 +198,7 @@ def main():
                     )
                     
                     # loss for offsets
-                    offset_loss = F.l1_loss(offsets, offset_labels)
+                    offset_loss = F.l1_loss(offsets, offset_labels) * 0.6
                     loss = logits_loss + offset_loss
                     writer.add_scalar("loss/logits", logits_loss.item(), global_step)
                     writer.add_scalar("loss/offset", offset_loss.item(), global_step)

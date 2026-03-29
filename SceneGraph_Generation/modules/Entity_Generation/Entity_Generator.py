@@ -50,7 +50,7 @@ class Feature_Fuser(nn.Module):
         sim_matrix = entity_features @ entity_features.T
         batch_size = sim_matrix.shape[0]
         mask = torch.eye(batch_size, dtype=torch.bool, device=sim_matrix.device)
-        sim_matrix = sim_matrix[mask].view(batch_size, batch_size - 1)
+        sim_matrix = sim_matrix[~mask].view(batch_size, batch_size - 1)
         patch_sim = sim_matrix.mean(dim=-1) # [batch]
         global_sim = (originals * entity_features).sum(dim=-1) # [batch]
         w = (patch_sim + global_sim) / self.tau # [batch]

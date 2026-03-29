@@ -105,6 +105,8 @@ class Entity_Generator(nn.Module):
         # relation is True: [batch, 2, ...]
         # relation is False: [batch, ...]
         device = fused_entity_features.device
+        dtype = self.language_model.dtype
+        fused_entity_features = fused_entity_features.to(device=device, dtype=dtype)
         entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
         
         if self.relation is True:

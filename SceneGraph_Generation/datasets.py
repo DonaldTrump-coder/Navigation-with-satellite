@@ -57,7 +57,7 @@ class Patch_features_dataset(Dataset):
         encoding = self.text_processor.tokenizer(
             label,
             return_tensors="pt",
-            padding=True,
+            padding="max_length",
             truncation=True,
             max_length=self.max_length
         )

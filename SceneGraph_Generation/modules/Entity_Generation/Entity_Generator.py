@@ -81,16 +81,6 @@ class Entity_Generator(nn.Module):
             nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
         )
         
-        hidden_dim = 512
-        self.relation = False
-        self.relation_norm = nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)
-        self.relation_mlp = nn.Sequential(
-            nn.LayerNorm(4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)),
-            nn.Linear(4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024), hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
-        )
-        
         self.inferring = False # Inference mode
         
     def set_train_stage(self, stage = "stage1"):
@@ -118,19 +108,6 @@ class Entity_Generator(nn.Module):
         device = fused_entity_features.device
         lm_dtype = self.language_model.dtype
         entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024]
-        
-        if self.relation is True:
-            fused_entity_features = self.relation_norm(fused_entity_features)
-            x1 = fused_entity_features[:, 0, :]
-            x2 = fused_entity_features[:, 1, :]
-            fused_entity_features = torch.cat([
-                x1,
-                x2,
-                torch.abs(x1 - x2),
-                x1 * x2
-            ], dim=-1) # [batch, 4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)]
-            logits = self.relation_mlp(fused_entity_features)
-            return logits
         
         if not self.inferring: # training and testing mode
             # training mode

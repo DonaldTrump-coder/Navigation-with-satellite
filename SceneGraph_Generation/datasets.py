@@ -162,42 +162,6 @@ class Patches_dataset(Dataset):
             "entity_original": entity_original
         }
     
-class Patches_relation_dataset(Dataset): # load data for relation prediction
-    def __init__(self,
-                 json_path,
-                 fused_entity_features,
-                 shapes
-                 ):
-        self.fused_entity_features = fused_entity_features
-        self.pairs = []
-        
-        with open(json_path, 'r', encoding='utf-8') as f:
-            self.json_data = json.load(f)
-        self.patch_num = len(shapes)
-        connections = self.json_data["connections"]
-        self.adj_matrix = torch.zeros((self.patch_num, self.patch_num), dtype=torch.float32)
-        for i, j in connections:
-            self.adj_matrix[i-1, j-1] = 1
-            self.adj_matrix[j-1, i-1] = 1
-        for i in range(self.patch_num):
-            for j in range(self.patch_num):
-                if i == j:
-                    continue
-                self.pairs.append((i, j)) # load all pairs
-            
-    def __len__(self):
-        return len(self.pairs)
-    
-    def __getitem__(self, idx):
-        i, j = self.pairs[idx]
-        fused_entity_features_i = self.fused_entity_features[i]
-        fused_entity_features_j = self.fused_entity_features[j]
-        label = self.adj_matrix[i, j]
-        return {
-            "fused_entity_features": torch.stack([fused_entity_features_i, fused_entity_features_j], dim=0),
-            "label": label
-        }
-    
 def get_2d_sincos_pos_embed(h, w, embed_dim=64):
     assert embed_dim % 4 == 0, f"embed_dim should be divisible by 4, got {embed_dim}"
     

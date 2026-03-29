@@ -105,8 +105,8 @@ def main():
     model = Entity_Generator(vector_dim=dino_dim,
                              ocrmodel=text_decoder,
                              lora_config = lora_config
-                             )
-    encoder = Feature_Fuser(vector_dim=dino_dim, cnnmodel=cnn_model, vitmodel=vit_model)
+                             ).to(device)
+    encoder = Feature_Fuser(vector_dim=dino_dim, cnnmodel=cnn_model, vitmodel=vit_model).to(device)
     
     # training
     for epoch in range(epochs):
@@ -131,9 +131,9 @@ def main():
             patch_batch_size = encoder_dataset.__len__()
             patch_dataloader = DataLoader(encoder_dataset, batch_size=patch_batch_size)
             for batch in patch_dataloader:
-                image = batch["image"]
-                entity_feature = batch["entity_feature"]
-                entity_original = batch["entity_original"]
+                image = batch["image"].to(device)
+                entity_feature = batch["entity_feature"].to(device)
+                entity_original = batch["entity_original"].to(device)
                 with torch.no_grad():
                     fused_entity_features = encoder(entity_feature,
                                                     entity_original,
@@ -160,11 +160,11 @@ def main():
                 if step % 2 == 0:
                     model.relation = False
                     batch = next(patch_loader)
-                    fused_entity_features = batch["fused_entity_features"]
-                    input_ids = batch["input_ids"]
-                    attention_masks = batch["attention_mask"]
-                    labels = batch["labels"]
-                    offset_labels = batch["offset"]
+                    fused_entity_features = batch["fused_entity_features"].to(device)
+                    input_ids = batch["input_ids"].to(device)
+                    attention_masks = batch["attention_mask"].to(device)
+                    labels = batch["labels"].to(device)
+                    offset_labels = batch["offset"].to(device)
                     logits, offsets = model(fused_entity_features = fused_entity_features,
                                             input_ids = input_ids,
                                             attention_mask = attention_masks
@@ -183,8 +183,8 @@ def main():
                 else:
                     model.relation = True
                     batch = next(patch_relation_loader)
-                    fused_entity_features = batch["fused_entity_features"]
-                    label = batch["label"] # [batch]
+                    fused_entity_features = batch["fused_entity_features"].to(device)
+                    label = batch["label"].to(device) # [batch]
                     logits = model(fused_entity_features = fused_entity_features)
                     relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
                     loss = relation_loss
@@ -212,9 +212,9 @@ def main():
             patch_batch_size = encoder_dataset.__len__()
             patch_dataloader = DataLoader(encoder_dataset, batch_size=patch_batch_size)
             for batch in patch_dataloader:
-                image = batch["image"]
-                entity_feature = batch["entity_feature"]
-                entity_original = batch["entity_original"]
+                image = batch["image"].to(device)
+                entity_feature = batch["entity_feature"].to(device)
+                entity_original = batch["entity_original"].to(device)
                 fused_entity_features = encoder(entity_feature,
                                                 entity_original,
                                                 image
@@ -234,11 +234,11 @@ def main():
                 
                 for batch in patch_loader:
                     model.relation = False
-                    fused_entity_features = batch["fused_entity_features"]
-                    input_ids = batch["input_ids"]
-                    attention_masks = batch["attention_mask"]
-                    labels = batch["labels"]
-                    offset_labels = batch["offset"]
+                    fused_entity_features = batch["fused_entity_features"].to(device)
+                    input_ids = batch["input_ids"].to(device)
+                    attention_masks = batch["attention_mask"].to(device)
+                    labels = batch["labels"].to(device)
+                    offset_labels = batch["offset"].to(device)
                     logits, offsets = model(fused_entity_features=fused_entity_features,
                                             input_ids=input_ids,
                                             attention_mask=attention_masks)
@@ -254,8 +254,8 @@ def main():
                     
                 for batch in patch_relation_loader:
                     model.relation = True
-                    fused_entity_features = batch["fused_entity_features"]
-                    label = batch["label"]
+                    fused_entity_features = batch["fused_entity_features"].to(device)
+                    label = batch["label"].to(device)
                     logits = model(fused_entity_features=fused_entity_features)
                     relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
                     total_relation_loss += relation_loss.item()

@@ -66,18 +66,20 @@ class Entity_Generator(nn.Module):
         self.feature_projection_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
         self.language_model = ocrmodel.model.language_model
         self.language_model = get_peft_model(self.language_model, lora_config)
+        dtype = self.language_model.dtype
         self.lm_head = ocrmodel.lm_head
         self.lm_head.requires_grad_(False) # the head is frozen all the time
         
-        self.offset_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
+        self.feature_projection_head = self.feature_projection_head.to(dtype=dtype)
+        self.offset_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2).to(dtype=dtype)
         
         hidden_dim = 512
         self.relation = False
-        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True)
+        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True).to(dtype=dtype)
         self.relation_mlp = nn.Sequential(
-            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim).to(dtype=dtype),
+            nn.ReLU().to(dtype=dtype),
+            nn.Linear(hidden_dim, 1).to(dtype=dtype)
         )
         
         self.inferring = False # Inference mode

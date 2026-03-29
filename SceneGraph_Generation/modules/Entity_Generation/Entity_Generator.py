@@ -121,8 +121,8 @@ class Entity_Generator(nn.Module):
         
         if self.relation is True:
             fused_entity_features = self.relation_norm(fused_entity_features)
-            #attn_output, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
-            #fused_entity_features = attn_output.mean(dim=1)
+            #fused_entity_features, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
+            fused_entity_features = fused_entity_features.mean(dim=1)
             logits = self.relation_mlp(fused_entity_features)
             return logits
         

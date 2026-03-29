@@ -6,7 +6,7 @@ from peft import get_peft_model
 
 class Feature_Fuser(nn.Module):
     def __init__(self, vector_dim, cnnmodel, vitmodel):
-        super(Entity_Generator, self).__init__()
+        super(Feature_Fuser, self).__init__()
         self.vector_dim = vector_dim
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)

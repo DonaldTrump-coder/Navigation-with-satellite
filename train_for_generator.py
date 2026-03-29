@@ -186,7 +186,7 @@ def main():
                     model.relation = True
                     batch = next(patch_relation_loader)
                     fused_entity_features = batch["fused_entity_features"].to(device)
-                    label = batch["label"].to(device) # [batch]
+                    label = batch["label"].to(device).unsqueeze(-1) # [batch]
                     logits = model(fused_entity_features = fused_entity_features)
                     relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
                     loss = relation_loss

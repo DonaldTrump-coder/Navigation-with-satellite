@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
 from peft import LoraConfig, TaskType
+from tqdm import tqdm
 
 # json data:
 """
@@ -45,7 +46,7 @@ from peft import LoraConfig, TaskType
 
 
 def main():
-    batch_size = 1
+    batch_size = 2
     train_ratio = 0.8
     roi_size = (256, 256)
     lr=1e-4
@@ -118,7 +119,7 @@ def main():
             model.set_train_stage("stage2")
             optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = lr * 0.1)
             print("Training stage 2")
-        for scene in train_samples:
+        for scene in tqdm(train_samples, desc=f"Epoch {epoch}"):
             npy_path, tif_path, json_path = scene
             encoder_dataset = Patches_dataset(npy_path,
                                             tif_path,

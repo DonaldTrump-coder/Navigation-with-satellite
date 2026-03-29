@@ -84,10 +84,9 @@ class Entity_Generator(nn.Module):
         hidden_dim = 512
         self.relation = False
         self.relation_norm = nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)
-        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True)
         self.relation_mlp = nn.Sequential(
-            nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
-            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim),
+            nn.LayerNorm(4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)),
+            nn.Linear(4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024), hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
@@ -110,7 +109,7 @@ class Entity_Generator(nn.Module):
                     param.requires_grad = False
         
     def forward(self,
-                fused_entity_features, # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
+                fused_entity_features, # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024]
                 input_ids = None, # [batch, seq_len]
                 attention_mask = None, # [batch, seq_len]
                 ):
@@ -118,13 +117,18 @@ class Entity_Generator(nn.Module):
         # relation is False: [batch, ...]
         device = fused_entity_features.device
         lm_dtype = self.language_model.dtype
-        entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
+        entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024]
         
         if self.relation is True:
-            x = self.relation_norm(fused_entity_features)
-            attn_out, _ = self.relation_attention(x, x, x)
-            fused_entity_features = fused_entity_features + attn_out
-            fused_entity_features = fused_entity_features.mean(dim=1)
+            fused_entity_features = self.relation_norm(fused_entity_features)
+            x1 = fused_entity_features[:, 0, :]
+            x2 = fused_entity_features[:, 1, :]
+            fused_entity_features = torch.cat([
+                x1,
+                x2,
+                torch.abs(x1 - x2),
+                x1 * x2
+            ], dim=-1) # [batch, 4 * (2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)]
             logits = self.relation_mlp(fused_entity_features)
             return logits
         

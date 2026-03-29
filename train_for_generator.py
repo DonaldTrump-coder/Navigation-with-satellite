@@ -195,10 +195,10 @@ def main():
                         logits.reshape(-1, logits.size(-1)),
                         labels.reshape(-1),
                         ignore_index=-100
-                    )
+                    ) * 0.6
                     
                     # loss for offsets
-                    offset_loss = F.l1_loss(offsets, offset_labels) * 0.6
+                    offset_loss = F.l1_loss(offsets, offset_labels)
                     loss = logits_loss + offset_loss
                     writer.add_scalar("loss/logits", logits_loss.item(), global_step)
                     writer.add_scalar("loss/offset", offset_loss.item(), global_step)

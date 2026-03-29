@@ -65,7 +65,6 @@ class Entity_Generator(nn.Module):
         self.has_lora = False
         self.vector_dim = vector_dim
         self.feature_projection_head = nn.Sequential(
-            nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
             nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
         )
         self.language_model = ocrmodel.model.language_model
@@ -122,9 +121,9 @@ class Entity_Generator(nn.Module):
         
         if self.relation is True:
             fused_entity_features = self.relation_norm(fused_entity_features)
-            attn_output, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
-            combined = attn_output.mean(dim=1)
-            logits = self.relation_mlp(combined)
+            #attn_output, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
+            #fused_entity_features = attn_output.mean(dim=1)
+            logits = self.relation_mlp(fused_entity_features)
             return logits
         
         if not self.inferring: # training and testing mode

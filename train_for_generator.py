@@ -49,7 +49,7 @@ import time
 
 
 def main():
-    batch_size = 8
+    batch_size = 16
     train_ratio = 0.8
     roi_size = (256, 256)
     lr=1e-4

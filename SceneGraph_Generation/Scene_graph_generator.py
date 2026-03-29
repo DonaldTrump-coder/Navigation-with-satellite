@@ -78,7 +78,7 @@ class EntityDetector(nn.Module):
         # reshape the patch_features in each patch from 1D to 2D
         patch_features = torch.cat((patch_features, general_features), dim=-1)
         
-        features = resizer(patch_features, x['indices']) # [batch_size, height, width, vector_dim]    vectoe_dim = 2048
+        features = resizer(patch_features, x['indices']) # [batch_size, height, width, vector_dim]    vector_dim = 2048
         features = features.permute(0, 3, 1, 2) # [batch_size, vector_dim, height, width]
         
         # U-Net like decoder

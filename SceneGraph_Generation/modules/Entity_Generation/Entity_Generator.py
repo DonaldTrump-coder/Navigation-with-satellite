@@ -56,7 +56,7 @@ class Feature_Fuser(nn.Module):
         w = (patch_sim + global_sim) / self.tau # [batch]
         weights = F.softmax(w, dim=0).unsqueeze(-1) # [batch, 1]
         entity_features = weights * originals + (1 - weights) * entity_features # [batch, 512]
-        entity_features = torch.concat([entity_features, unfused_entity_features], dim=-1) # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]  fused features
+        entity_features = torch.concat([entity_features, unfused_entity_features], dim=-1) # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024]  fused features
         return entity_features
 
 class Entity_Generator(nn.Module):

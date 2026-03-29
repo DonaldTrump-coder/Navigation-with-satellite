@@ -63,19 +63,19 @@ class Entity_Generator(nn.Module):
     def __init__(self, vector_dim, ocrmodel, lora_config):
         super(Entity_Generator, self).__init__()
         self.vector_dim = vector_dim
-        self.feature_projection_head = nn.Linear(2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, 1536)
+        self.feature_projection_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
         self.language_model = ocrmodel.model.language_model
         self.language_model = get_peft_model(self.language_model, lora_config)
         self.lm_head = ocrmodel.lm_head
         self.lm_head.requires_grad_(False) # the head is frozen all the time
         
-        self.offset_head = nn.Linear(2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, 2)
+        self.offset_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
         
         hidden_dim = 512
         self.relation = False
-        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, num_heads=2, batch_first=True)
+        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True)
         self.relation_mlp = nn.Sequential(
-            nn.Linear(2 * (self.vector_dim // 8 + 3 + 3 + 64) + 512, hidden_dim),
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )

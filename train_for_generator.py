@@ -49,7 +49,7 @@ import time
 
 
 def main():
-    batch_size = 2
+    batch_size = 8
     train_ratio = 0.8
     roi_size = (256, 256)
     lr=1e-4
@@ -234,6 +234,13 @@ def main():
     total_relation_loss = 0.0
     num_entity_batches = 0
     num_relation_batches = 0
+    
+    # save model
+    model.lora_merge()
+    save_path = "./SceneGraph_Generation/models/Entity_Generator/model.pt"
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    torch.save(model.state_dict(), save_path)
+    
     with torch.no_grad():
         for scene in test_samples:
             npy_path, tif_path, json_path = scene

@@ -101,6 +101,10 @@ def main():
         print(f"Test Loss: {total_loss}, Accuracy: {acc/total}")
         
     # Inference and saving
+    save_path = "./SceneGraph_Generation/models/Entity_Detector/model.pt"
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    torch.save(model.state_dict(), save_path) # save model
+    
     with torch.no_grad():
         for batch in tqdm(inference_loader, desc="Saving"):
             inputs, _ = batch

@@ -62,24 +62,34 @@ class Feature_Fuser(nn.Module):
 class Entity_Generator(nn.Module):
     def __init__(self, vector_dim, ocrmodel, lora_config):
         super(Entity_Generator, self).__init__()
+        self.has_lora = False
         self.vector_dim = vector_dim
-        self.feature_projection_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
+        self.feature_projection_head = nn.Sequential(
+            nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
+        )
         self.language_model = ocrmodel.model.language_model
-        self.language_model = get_peft_model(self.language_model, lora_config)
+        if lora_config is not None:
+            self.language_model = get_peft_model(self.language_model, lora_config)
+            self.has_lora = True
         dtype = self.language_model.dtype
         self.lm_head = ocrmodel.lm_head
         self.lm_head.requires_grad_(False) # the head is frozen all the time
         
         self.feature_projection_head = self.feature_projection_head.to(dtype=dtype)
-        self.offset_head = nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2).to(dtype=dtype)
+        self.offset_head = nn.Sequential(
+            nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
+        )
         
         hidden_dim = 512
         self.relation = False
-        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True).to(dtype=dtype)
+        self.relation_norm = nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024)
+        self.relation_attention = nn.MultiheadAttention(embed_dim=2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, num_heads=2, batch_first=True)
         self.relation_mlp = nn.Sequential(
-            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim).to(dtype=dtype),
-            nn.ReLU().to(dtype=dtype),
-            nn.Linear(hidden_dim, 1).to(dtype=dtype)
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
         )
         
         self.inferring = False # Inference mode
@@ -107,11 +117,11 @@ class Entity_Generator(nn.Module):
         # relation is True: [batch, 2, ...]
         # relation is False: [batch, ...]
         device = fused_entity_features.device
-        dtype = self.language_model.dtype
-        fused_entity_features = fused_entity_features.to(device=device, dtype=dtype)
+        lm_dtype = self.language_model.dtype
         entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512]
         
         if self.relation is True:
+            fused_entity_features = self.relation_norm(fused_entity_features)
             attn_output, _ = self.relation_attention(fused_entity_features, fused_entity_features, fused_entity_features)
             combined = attn_output.mean(dim=1)
             logits = self.relation_mlp(combined)
@@ -120,7 +130,7 @@ class Entity_Generator(nn.Module):
         if not self.inferring: # training and testing mode
             # training mode
             offsets = self.offset_head(entity_features) # [batch, 2]
-            features_embed = self.feature_projection_head(entity_features) # [batch, 1536]
+            features_embed = self.feature_projection_head(entity_features.to(lm_dtype)) # [batch, 1536]
             features_embed = features_embed.unsqueeze(1) # [batch, 1, 1536]
             input_embeds = self.language_model.embed_tokens(input_ids) # [batch, seq_len, 1536]
             input_embeds = torch.cat(
@@ -145,10 +155,10 @@ class Entity_Generator(nn.Module):
         else:
             # inference mode
             offsets = self.offset_head(entity_features) # [batch, 2]
-            features_embed = self.feature_projection_head(entity_features)  # [batch, 1536]
+            features_embed = self.feature_projection_head(entity_features.to(lm_dtype))  # [batch, 1536]
             features_embed = features_embed.unsqueeze(1)  # [batch, 1, 1536]
             
-            generated_ids = torch.empty((fused_entity_features.size(0), 0), dtype=torch.long, device=device)
+            generated_ids = torch.empty((entity_features.size(0), 0), dtype=torch.long, device=device)
             
             # generate for texts
             for _ in range(self.max_length):
@@ -170,3 +180,7 @@ class Entity_Generator(nn.Module):
                     break
                 
             return offsets, generated_ids  # [batch, 2] [batch, generated_seq_len]
+        
+    def lora_merge(self):
+        if self.has_lora is True:
+            self.language_model = self.language_model.merge_and_unload()

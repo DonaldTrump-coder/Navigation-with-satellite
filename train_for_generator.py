@@ -12,6 +12,9 @@ import torch.nn as nn
 import torch.optim as optim
 from peft import LoraConfig, TaskType
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+import subprocess
+import time
 
 # json data:
 """
@@ -80,6 +83,19 @@ def main():
     
     dino_dim = 1024
     
+    log_dir="./log/generator"
+    writer = SummaryWriter(log_dir=log_dir)
+    tb_process = subprocess.Popen(
+        ["tensorboard", "--logdir", log_dir, "--port", "6006"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    print("TensorBoard started at http://localhost:6006")
+
+    time.sleep(3)
+    writer = SummaryWriter(log_dir=log_dir)
+    global_step = 0
+    
     feature_paths = []
     tif_paths = []
     json_paths = []
@@ -112,6 +128,7 @@ def main():
     
     # training
     for epoch in range(epochs):
+        epoch_loss = 0
         if epoch == 0: # first stage
             model.set_train_stage("stage1")
             optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
@@ -182,6 +199,10 @@ def main():
                     # loss for offsets
                     offset_loss = F.l1_loss(offsets, offset_labels)
                     loss = logits_loss + offset_loss
+                    writer.add_scalar("loss/logits", logits_loss.item(), global_step)
+                    writer.add_scalar("loss/offset", offset_loss.item(), global_step)
+                    
+                    epoch_loss += logits_loss.item() + offset_loss.item()
                 else:
                     model.relation = True
                     batch = next(patch_relation_loader)
@@ -189,11 +210,22 @@ def main():
                     label = batch["label"].to(device).unsqueeze(-1) # [batch]
                     logits = model(fused_entity_features = fused_entity_features)
                     relation_loss = nn.BCEWithLogitsLoss()(logits, label.float())
+                    writer.add_scalar("loss/relation", relation_loss.item(), global_step)
                     loss = relation_loss
+                    
+                    epoch_loss = relation_loss.item()
+                    
+                writer.add_scalar("loss/total", logits_loss.item() + offset_loss.item() + relation_loss.item(), global_step)
                 
                 loss.backward()
                 optimizer.step()
+                global_step += 1
                 
+        writer.add_scalar("Train/Epoch_Loss", epoch_loss, epoch)
+                
+    writer.close()
+    tb_process.terminate()
+    
     # testing
     model.eval()
     total_logits_loss = 0.0

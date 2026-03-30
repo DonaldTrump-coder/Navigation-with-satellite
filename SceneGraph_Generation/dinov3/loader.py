@@ -150,6 +150,48 @@ class SatelliteDataset(Dataset):
         indices = torch.stack(indices, dim=0)
         
         return patches, indices
+    
+class SatelliteDataset_infer(Dataset):
+    def __init__(self, img, transform=None, patch_size=(128, 128)):
+        super().__init__()
+        self.img = img
+        self.transform = transform
+        self.patch_size = patch_size
+
+    def __len__(self):
+        return 1
+    
+    def __getitem__(self, idx):
+        if self.transform:
+            image = self.transform(self.img)
+        
+        patch_width, patch_height = self.patch_size
+        patches, indices = self._split_into_patches(image, patch_width, patch_height)
+        inputs = {'pixel_values': patches, 'indices': indices, 'image_idx':idx, 'patches_num': patches.shape[0]}
+        
+        #inputs = {'pixel_values': image}
+        #if inputs['pixel_values'].dim() == 4:
+            #inputs['pixel_values'] = inputs['pixel_values'].squeeze(0)
+        
+        return inputs
+    
+    def _split_into_patches(self, image, patch_width, patch_height):
+        _, height, width = image.shape
+        patches = []
+        indices = []
+
+        for i in range(0, height, patch_height):
+            for j in range(0, width, patch_width):
+                if i + patch_height <= height and j + patch_width <= width:
+                    patch = image[:, i:i + patch_height, j:j + patch_width]
+
+                    patches.append(patch)
+                    indices.append(torch.tensor([i, j], dtype=torch.int64))
+        
+        patches = torch.stack(patches, dim=0)
+        indices = torch.stack(indices, dim=0)
+        
+        return patches, indices
 
 if __name__ == "__main__":
     model_path = "../models/dinov3_vitl16_pretrain_sat493m"

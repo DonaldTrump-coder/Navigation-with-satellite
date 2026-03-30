@@ -75,6 +75,22 @@ class Patch_features_dataset(Dataset):
             "labels": labels,
             "offset": offset # [2]
         }
+        
+class Patch_features_dataset_infer(Dataset):
+    def __init__(self,
+                 fused_entity_features
+                 ):
+        self.fused_entity_features = fused_entity_features
+        
+        self.patch_num = len(fused_entity_features)
+        
+    def __len__(self):
+        return self.patch_num
+    
+    def __getitem__(self, idx):
+        fused_entity_feature = self.fused_entity_features[idx]
+        return fused_entity_feature
+        
 class Patches_dataset(Dataset):
     def __init__(self,
                  npy_path,
@@ -136,7 +152,6 @@ class Patches_dataset(Dataset):
             
             image_patch = Image.fromarray(image_np)
             image_patch = resize_img_with_padding(image_patch, roi_size)
-            image_patch.show()
             feature_patch = torch.tensor(features_np, dtype=torch.float32)
             feature_patch = resize_feature_with_padding(feature_patch, roi_size)
             
@@ -149,6 +164,70 @@ class Patches_dataset(Dataset):
     
     def get_shapes(self):
         return self.shapes
+    
+    def __getitem__(self, idx):
+        entity_feature = self.entity_features[idx]
+        entity_original = self.entity_originals[idx]
+        image = self.image
+        image = self.vit_preprocess(image)
+        entity_original = self.cnn_preprocess(entity_original)
+        return {
+            "image": image, # preprocessed original img
+            "entity_feature": entity_feature,
+            "entity_original": entity_original
+        }
+        
+class Patches_dataset_infer(Dataset):
+    def __init__(self,
+                 features,
+                 img,
+                 masks,
+                 cnn_preprocess,
+                 vit_preprocess,
+                 roi_size = (256, 256)
+                 ):
+        _, h, w = features.shape
+        pos_embed = get_2d_sincos_pos_embed(h, w, embed_dim=64)
+        self.features_data = np.concatenate([features, pos_embed], axis=0) # positional embeddings
+        
+        self.vit_preprocess = vit_preprocess
+        self.cnn_preprocess = cnn_preprocess
+        
+        self.image = img
+        self.image = self.image.resize(
+            (w, h),
+            resample=Image.LANCZOS
+        )
+        
+        self.entity_features = []
+        self.entity_originals = []
+        
+        self.patch_num = len(masks)
+        for mask in masks:
+            ys, xs = np.nonzero(mask)
+            x_min = int(xs.min())
+            y_min = int(ys.min())
+            x_max = int(xs.max())
+            y_max = int(ys.max())
+
+            # cropping for img and feature map
+            image_np = np.array(self.image) # [h, w, c]
+            image_np = image_np * mask[:, :, None]
+            image_np = image_np[y_min:y_max, x_min:x_max]
+            features_np = self.features_data.copy()
+            features_np = features_np * mask[None, :, :]
+            features_np = features_np[:, y_min:y_max, x_min:x_max]
+            
+            image_patch = Image.fromarray(image_np)
+            image_patch = resize_img_with_padding(image_patch, roi_size)
+            feature_patch = torch.tensor(features_np, dtype=torch.float32)
+            feature_patch = resize_feature_with_padding(feature_patch, roi_size)
+            
+            self.entity_features.append(feature_patch)
+            self.entity_originals.append(image_patch)
+    
+    def __len__(self):
+        return self.patch_num
     
     def __getitem__(self, idx):
         entity_feature = self.entity_features[idx]

@@ -27,7 +27,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     dino_dim = 1024
     transform = make_transform()
     
-    detector_path = "./SceneGraph_Generation/models/Entity_Generator/model.pt"
+    detector_path = "./SceneGraph_Generation/models/Entity_Detector/model.pt"
     detector = EntityDetector(dino_path, dino_dim).to(device=device)
     detector_state_dict = torch.load(
         detector_path,

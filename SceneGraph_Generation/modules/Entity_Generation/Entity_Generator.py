@@ -60,7 +60,7 @@ class Feature_Fuser(nn.Module):
         return entity_features
 
 class Entity_Generator(nn.Module):
-    def __init__(self, vector_dim, ocrmodel, lora_config):
+    def __init__(self, vector_dim, ocrmodel, lora_config, max_length = None):
         super(Entity_Generator, self).__init__()
         self.has_lora = False
         self.vector_dim = vector_dim
@@ -80,6 +80,7 @@ class Entity_Generator(nn.Module):
             nn.LayerNorm(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024),
             nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
         )
+        self.max_length = max_length
         
         self.inferring = False # Inference mode
         

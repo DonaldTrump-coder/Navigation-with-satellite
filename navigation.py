@@ -25,6 +25,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         
     dino_path = "./SceneGraph_Generation/models/dinov3_vitl16_pretrain_sat493m"
     dino_dim = 1024
+    max_length = 8
     transform = make_transform()
     
     detector_path = "./SceneGraph_Generation/models/Entity_Detector/model.pt"
@@ -91,7 +92,8 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     
     model = Entity_Generator(vector_dim=dino_dim,
                              ocrmodel=text_decoder,
-                             lora_config=None
+                             lora_config=None,
+                             max_length=max_length
                              ).to(device)
     model.load_state_dict(generator_state_dict)
     model.eval()

@@ -11,7 +11,7 @@ import time
 import subprocess
 
 def main():
-    batch_size = 8
+    batch_size = 4
     epochs = 20
     split_ratio = 0.9
     lr = 1e-4

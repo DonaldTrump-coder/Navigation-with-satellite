@@ -188,7 +188,9 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     sparse_dist = csr_matrix(dist_matrix)
     mst = minimum_spanning_tree(sparse_dist)
     mst_matrix = mst.toarray() + mst.toarray().T
+    mst_matrix = (mst_matrix > 0).astype(np.int32)
     print(mst_matrix)
+    print(texts)
         
         # patch description from VLM
         

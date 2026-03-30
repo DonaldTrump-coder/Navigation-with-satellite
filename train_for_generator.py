@@ -54,7 +54,7 @@ def main():
     roi_size = (256, 256)
     lr=1e-4
     max_length = 8 # max token length of entity labels
-    epochs = 10
+    epochs = 30
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:

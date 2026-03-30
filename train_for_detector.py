@@ -11,9 +11,9 @@ import time
 import subprocess
 
 def main():
-    batch_size = 4
-    epochs = 10
-    split_ratio = 0.8
+    batch_size = 8
+    epochs = 20
+    split_ratio = 0.9
     lr = 1e-4
     if torch.cuda.is_available():
         device = torch.device("cuda")

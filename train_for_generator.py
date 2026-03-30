@@ -50,7 +50,7 @@ import time
 
 def main():
     batch_size = 16
-    train_ratio = 0.8
+    train_ratio = 0.9
     roi_size = (256, 256)
     lr=1e-4
     max_length = 8 # max token length of entity labels

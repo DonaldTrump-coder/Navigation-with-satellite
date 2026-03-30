@@ -67,6 +67,8 @@ class EntityDetector(nn.Module):
                                 num_heads=4,
                                 dropout=0.1
                                 ).to(self.device)
+            if hasattr(self, "expander_state_dict"):
+                self.expander.load_state_dict(self.expander_state_dict)
         general_features = self.expander(general_features) # [batch_size, num_patches, patch_num_vectors, vector_dim]
 
         patch_features = patch_features.view(batch_size, num_patches, patch_features.shape[-2], patch_features.shape[-1])

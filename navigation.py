@@ -33,7 +33,11 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         detector_path,
         map_location="cpu"
     )
-    detector.load_state_dict(detector_state_dict)
+    expander_state_dict = {k.replace("expander.", ""): v 
+                       for k, v in detector_state_dict.items() if k.startswith("expander.")}
+    detector.expander_state_dict = expander_state_dict
+    filtered_state_dict = {k: v for k, v in detector_state_dict.items() if not k.startswith("expander.")}
+    detector.load_state_dict(filtered_state_dict, strict=False)
     detector.eval()
     detector.to(device)
     

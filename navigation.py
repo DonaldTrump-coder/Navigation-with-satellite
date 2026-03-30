@@ -189,4 +189,5 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
 if __name__ == "__main__":
     img_path = "./data/Google/Changsha/112.922586488_28.146811292.tif"
     img = Image.open(img_path)
+    img = np.array(img)
     navigator(img, 0,0,0,0)

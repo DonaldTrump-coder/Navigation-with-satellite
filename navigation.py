@@ -90,7 +90,8 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
                                           image)
     
     model = Entity_Generator(vector_dim=dino_dim,
-                             ocrmodel=text_decoder
+                             ocrmodel=text_decoder,
+                             lora_config=None
                              ).to(device)
     model.load_state_dict(generator_state_dict)
     model.eval()

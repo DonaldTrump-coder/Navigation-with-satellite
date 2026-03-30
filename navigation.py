@@ -172,6 +172,10 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         
         patch_path = os.path.join(patch_folder, f"patch.png")
         patch.save(patch_path)
+    
+    mask_path = os.path.join(save_folder, "mask.png")
+    mask_image = Image.fromarray((mask * 255).astype(np.uint8))
+    mask_image.save(mask_path)
         
     # constructing relation (distance) matrix
     for i in range(node_num):

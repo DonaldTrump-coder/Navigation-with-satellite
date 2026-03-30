@@ -49,7 +49,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         preds = (probs > 0.5).float()
     preds = preds[0]
     mask = preds.squeeze(0).cpu().numpy()
-    features = features[0].cpu().numpy()
+    features = features[0].detach().cpu().numpy()
     filtered_masks = split_entities(mask) # [mask1, mask2 ...]
     
     node_num = len(filtered_masks)
@@ -100,8 +100,8 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     for batch in dataloader:
         fused_entity_feature = batch.to(device)
         offsets, generated_ids = model(fused_entity_feature)
-    offsets = offsets.cpu().numpy()
-    generated_ids = generated_ids.cpu()
+    offsets = offsets.detach().cpu().numpy()
+    generated_ids = generated_ids.detach().cpu()
     texts = text_processor.tokenizer.batch_decode(generated_ids, skip_special_tokens=True) # texts list
     
     x_center_original = []

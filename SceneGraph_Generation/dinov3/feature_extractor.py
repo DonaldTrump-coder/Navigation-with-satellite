@@ -9,7 +9,7 @@ class FeatureExtractor(nn.Module):
             param.requires_grad = False
             
         for i in [22,23]:
-            for param in self.model.layer[i].parameters():
+            for param in self.model.model.layer[i].parameters():
                 param.requires_grad = True
                 
         for param in self.model.norm.parameters():

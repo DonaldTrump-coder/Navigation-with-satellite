@@ -159,7 +159,10 @@ class Entity_Generator(nn.Module):
                 next_token_logits = self.lm_head(outputs.last_hidden_state[:, -1, :])  # [batch, vocab_size]
                 next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)  # [batch, 1]
                 generated_ids = torch.cat([generated_ids, next_token], dim=1)
-                if torch.eq(next_token, self.language_model.config.eos_token_id).all():
+                eos_id = self.language_model.config.eos_token_id
+                if isinstance(eos_id, list):
+                    eos_id = eos_id[0]
+                if (next_token.view(-1) == eos_id).all():
                     break
                 
             return offsets, generated_ids  # [batch, 2] [batch, generated_seq_len]

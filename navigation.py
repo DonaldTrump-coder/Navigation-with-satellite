@@ -14,7 +14,7 @@ import os
 from scipy.sparse import csr_matrix
 from SceneGraph_Generation.Scene_graph import SceneGraph, pix2geo
 from networkx import DiGraph
-from networkx.algorithms.approximation import minimum_spanning_arborescence
+from networkx.algorithms.tree import minimum_spanning_arborescence
 
 def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     img = Image.fromarray(img)

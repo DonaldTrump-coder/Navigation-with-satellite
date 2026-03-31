@@ -2,7 +2,7 @@ import torch, open_clip
 import numpy as np
 from SceneGraph_Generation.Scene_graph_generator import EntityDetector
 from SceneGraph_Generation.dinov3.loader import make_transform, SatelliteDataset_infer
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import DataLoader
 from SceneGraph_Generation.modules.Entity_splitter import split_entities
 from SceneGraph_Generation.modules.Languagemodels.GLMOCR import load_ocr_model
@@ -12,7 +12,9 @@ from SceneGraph_Generation.datasets import Patches_dataset_infer, Patch_features
 import cv2
 import os
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
+from SceneGraph_Generation.Scene_graph import SceneGraph, pix2geo
+from networkx import DiGraph
+from networkx.algorithms.approximation import minimum_spanning_arborescence
 
 def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     img = Image.fromarray(img)
@@ -113,6 +115,8 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     original_masks = []
     original_bounds = []
     patches_origin = []
+    lons = []
+    lats = []
     dist_matrix = np.zeros((node_num, node_num), dtype=np.float32)
     original_width, original_height = img.size
     h, w = mask.shape
@@ -170,6 +174,10 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         patch = patch.resize((patch_width, patch_height), Image.BILINEAR)
         patches_origin.append(patch)
         
+        lon, lat = pix2geo(x_center, y_center, min_lon, max_lon, min_lat, max_lat, original_width, original_height)
+        lons.append(lon)
+        lats.append(lat)
+        
         patch_path = os.path.join(patch_folder, f"patch.png")
         patch.save(patch_path)
     
@@ -190,15 +198,62 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     # constructing connection
     np.fill_diagonal(dist_matrix, np.inf)
     sparse_dist = csr_matrix(dist_matrix)
-    mst = minimum_spanning_tree(sparse_dist)
-    mst_matrix = mst.toarray() + mst.toarray().T
-    mst_matrix = (mst_matrix > 0).astype(np.int32)
+    graph = DiGraph()
+    rows, cols = sparse_dist.nonzero()
+    for i, j in zip(rows, cols):
+        graph.add_edge(i, j, weight=sparse_dist[i, j])
+    mst = minimum_spanning_arborescence(graph)
+    mst_matrix = np.zeros_like(dist_matrix, dtype=np.int32)
+    for u, v, data in mst.edges(data=True):
+        mst_matrix[u, v] = 1 # u -> v
+    
     print(mst_matrix)
     print(texts)
-        
-        # patch description from VLM
-        
     
+    # patch description from VLM
+    
+    # constructing scene graph
+    scene_graph = SceneGraph()
+    for idx in range(node_num):
+        scene_graph.add_node(label=texts[idx],
+                             center=(lons[idx], lats[idx]),
+                             description=None,
+                             mask=original_masks[idx]
+                             )
+    for i in range(node_num):
+        for j in range(node_num):
+            if mst_matrix[i][j] == 1:
+                scene_graph.add_edge(i, j)
+    
+    scene_description = scene_graph.get_text()
+    print(scene_description)
+    
+    # visualize scene_graph
+    img = img.convert("RGBA")
+    draw = ImageDraw.Draw(img)
+    existing_texts = []
+    for idx in range(node_num):
+        x_pixel, y_pixel = x_center_original[idx], y_center_original[idx]
+        draw.ellipse([x_pixel - 10, y_pixel - 10, x_pixel + 10, y_pixel + 10], outline="black", fill="yellow")
+        draw.text((x_pixel + 5, y_pixel + 5), f'Node {texts[idx]}', fill="black")
+    for edge in scene_graph.edges:
+        source_pos = (x_center_original[edge.source], y_center_original[edge.source])
+        target_pos = (x_center_original[edge.target], y_center_original[edge.target])
+        draw.line([source_pos, target_pos], fill="red", width=2)
+        
+        mid_point = ((x_center_original[edge.source] + x_center_original[edge.target]) / 2, (y_center_original[edge.source] + y_center_original[edge.target]) / 2)
+        for existing_text in existing_texts:
+            if abs(existing_text[0] - mid_point[0]) < 5 and abs(existing_text[1] - mid_point[1]) < 5:
+                mid_point = (mid_point[0] - 10, mid_point[1])
+                break
+        existing_texts.append(mid_point)
+        draw.text(mid_point, edge.direction, fill="red")
+        
+    graph_path = os.path.join(save_folder, f"graph.png")
+    img.save(graph_path, "PNG")
+    
+    # reasoning from LLM for scene graph
+
 if __name__ == "__main__":
     img_path = "./data/Google/Changsha/112.922586488_28.164847797.tif"
     img = Image.open(img_path)

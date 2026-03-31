@@ -77,7 +77,7 @@ def main():
         lora_alpha=16,
         lora_dropout=0.1,
         bias="none",
-        target_modules = ["q_proj", "v_proj"],
+        target_modules = ["q_proj", "v_proj", "k_proj", "o_proj", "mlp.down_proj"],
         task_type=TaskType.FEATURE_EXTRACTION
     )
     

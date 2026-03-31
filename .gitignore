@@ -210,3 +210,4 @@ data/
 models/
 .vscode/
 outputs/
+local/

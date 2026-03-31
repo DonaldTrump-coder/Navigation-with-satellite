@@ -1,9 +1,11 @@
 import math
+from typing import Dict, List
+from collections import deque
 
 class SceneGraph:
     def __init__(self):
-        self.nodes = {}
-        self.edges = []
+        self.nodes: Dict[int, Node] = {}
+        self.edges: List[Edge] = []
         self.next_id = 0
         
     def add_node(self, label, center, description, mask):
@@ -40,6 +42,54 @@ class SceneGraph:
     def add_edges(self, id1, id2):
         self.add_edge(id1, id2)
         self.add_edge(id2, id1)
+    
+    def bfs_navigation(self, start_id, target_id):
+        visited = set()
+        queue = deque([start_id])
+        parent = {start_id: None}
+        while queue:
+            current_node = queue.popleft()
+            if current_node == target_id:
+                path = []
+                while current_node is not None:
+                    path.append(current_node)
+                    current_node = parent[current_node]
+                return path[::-1] # Reverse the path to get from start to target
+            
+            visited.add(current_node)
+            
+            # Check all neighbors (edges)
+            for edge in self.edges:
+                if edge.source == current_node and edge.target not in visited:
+                    queue.append(edge.target)
+                    parent[edge.target] = current_node
+                elif edge.target == current_node and edge.source not in visited:
+                    queue.append(edge.source)
+                    parent[edge.source] = current_node
+        
+        return None
+        
+    def get_text(self):
+        """Text:
+        Node 0: Label: A, GeoCoordinates: (lon, lat), Description: A;
+        Node 1: Label: B, GeoCoordinates: (lon, lat), Description: B;
+        ...
+        Edges:
+         - <Node source_id>(source Label) <on the relation of> <Node target_id>(target Label)
+         ...
+        """
+        text = ""
+        for idx, node in enumerate(self.nodes.items()):
+            text += f"Node {idx}: Label: {node.label}, GeoCoordinates: (lon: {node.center[0]}, lat: {node.center[1]}), Description: {node.description}\n"
+        text += "\nEdges:\n"
+        for edge in self.edges:
+            source_node = edge.source
+            target_node = edge.target
+            source_label = self.nodes[source_node].label
+            target_label = self.nodes[target_node].label
+            relation = edge.direction
+            text += f" - <Node {source_node}>({source_label}) <{relation}> <Node {target_node}>({target_label})\n"
+        return text
         
 class Node:
     def __init__(self,
@@ -54,10 +104,15 @@ class Node:
         
 class Edge:
     def __init__(self,
-                 source,
-                 traget,
+                 source, # idx
+                 target, # idx
                  direction # from traget -> source
                  ):
         self.source = source
-        self.traget = traget
+        self.target = target
         self.direction = direction
+        
+def pix2geo(x, y, min_lon, max_lon, min_lat, max_lat, width, height):
+    lon = min_lon + (x / width) * (max_lon - min_lon)
+    lat = max_lat - (y / height) * (max_lat - min_lat)
+    return (lon, lat)

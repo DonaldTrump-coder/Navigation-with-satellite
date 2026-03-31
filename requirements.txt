@@ -10,3 +10,6 @@ opencv-python
 open-clip-torch
 tensorboard
 peft
+fastapi
+uvicorn
+pydantic

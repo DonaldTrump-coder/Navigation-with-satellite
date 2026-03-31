@@ -202,6 +202,8 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     rows, cols = sparse_dist.nonzero()
     for i, j in zip(rows, cols):
         graph.add_edge(i, j, weight=sparse_dist[i, j])
+    for u, v, data in graph.edges(data=True):
+        print(f"{u} -> {v}: weight = {data['weight']}")
     mst = minimum_spanning_arborescence(graph)
     mst_matrix = np.zeros_like(dist_matrix, dtype=np.int32)
     for u, v, data in mst.edges(data=True):

@@ -79,7 +79,7 @@ class SceneGraph:
          ...
         """
         text = ""
-        for idx, node in enumerate(self.nodes.items()):
+        for idx, node in enumerate(self.nodes.values()):
             text += f"Node {idx}: Label: {node.label}, GeoCoordinates: (lon: {node.center[0]}, lat: {node.center[1]}), Description: {node.description}\n"
         text += "\nEdges:\n"
         for edge in self.edges:

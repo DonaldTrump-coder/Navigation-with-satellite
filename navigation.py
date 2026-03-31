@@ -207,6 +207,22 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
             graph.add_edge(i, j, weight=sparse_dist[i, j])
     mst = minimum_spanning_arborescence(graph)
     mst_matrix = np.zeros_like(dist_matrix, dtype=np.int32)
+    
+    in_degrees = mst.in_degree()
+    out_degrees = mst.out_degree()
+    for node in mst.nodes():
+        if in_degrees[node] == 0:
+            for neighbor in mst.neighbors(node):
+                if out_degrees[neighbor] > 0:
+                    mst.add_edge(neighbor, node)
+                    break
+
+        if out_degrees[node] == 0:
+            for neighbor in mst.predecessors(node):
+                if in_degrees[neighbor] > 0:
+                    mst.add_edge(node, neighbor)
+                    break
+    
     for u, v, data in mst.edges(data=True):
         mst_matrix[u, v] = 1 # u -> v
     

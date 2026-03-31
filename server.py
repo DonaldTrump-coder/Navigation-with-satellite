@@ -14,7 +14,7 @@ import os
 from scipy.sparse import csr_matrix
 from SceneGraph_Generation.Scene_graph import SceneGraph, pix2geo
 from networkx import DiGraph
-from networkx.algorithms.approximation import minimum_spanning_arborescence
+from networkx.algorithms.tree import minimum_spanning_arborescence
 
 class SceneGraphNavigator:
     def __init__(self):
@@ -110,6 +110,7 @@ class SceneGraphNavigator:
         offsets = offsets.detach().cpu().numpy()
         generated_ids = generated_ids.detach().cpu()
         self.texts = self.text_processor.tokenizer.batch_decode(generated_ids, skip_special_tokens=True) # texts list
+        texts = [text.replace("\n", "").replace("_", "") for text in texts]
         
         self.x_center_original = []
         self.y_center_original = []
@@ -198,13 +199,14 @@ class SceneGraphNavigator:
                 self.dist_matrix[i, j] = distances.min()
             
         # constructing connection
-        # constructing connection
         np.fill_diagonal(self.dist_matrix, np.inf)
         sparse_dist = csr_matrix(self.dist_matrix)
         graph = DiGraph()
         rows, cols = sparse_dist.nonzero()
         for i, j in zip(rows, cols):
-            graph.add_edge(i, j, weight=sparse_dist[i, j])
+            weight = sparse_dist[i, j]
+            if np.isfinite(weight) and weight != np.inf:
+                graph.add_edge(i, j, weight=sparse_dist[i, j])
         mst = minimum_spanning_arborescence(graph)
         self.mst_matrix = np.zeros_like(self.dist_matrix, dtype=np.int32)
         for u, v, data in mst.edges(data=True):

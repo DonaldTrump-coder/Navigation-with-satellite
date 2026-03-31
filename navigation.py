@@ -108,6 +108,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     offsets = offsets.detach().cpu().numpy()
     generated_ids = generated_ids.detach().cpu()
     texts = text_processor.tokenizer.batch_decode(generated_ids, skip_special_tokens=True) # texts list
+    texts = [text.replace("\n", "").replace("_", "") for text in texts]
     
     x_center_original = []
     y_center_original = []

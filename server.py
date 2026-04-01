@@ -385,7 +385,7 @@ class Traj_Point:
         if kind == "survey":
             self.kind = "survey"
         elif kind == "traj":
-            self.kind == "traj"
+            self.kind = "traj"
         self.x = x
         self.y = y
     

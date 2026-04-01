@@ -392,8 +392,8 @@ class Traj_Point:
     def to_dict(self):
         return {
             "kind": self.kind,
-            "x": self.x,
-            "y": self.y
+            "x": float(self.x),
+            "y": float(self.y)
         }
     
 from fastapi import FastAPI, Response, Request

@@ -220,6 +220,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
     for idx in range(node_num):
         scene_graph.add_node(label=texts[idx],
                              center=(lons[idx], lats[idx]),
+                             pix_center=(x_center_original[idx], y_center_original[idx]),
                              description=None,
                              mask=original_masks[idx]
                              )
@@ -247,7 +248,7 @@ def navigator(img: np.ndarray, min_lon, max_lon, min_lat, max_lat): # [H, W, C]
         mid_point = ((x_center_original[edge.source] + x_center_original[edge.target]) / 2, (y_center_original[edge.source] + y_center_original[edge.target]) / 2)
         for existing_text in existing_texts:
             if abs(existing_text[0] - mid_point[0]) < 5 and abs(existing_text[1] - mid_point[1]) < 5:
-                mid_point = (mid_point[0] - 10, mid_point[1])
+                mid_point = (mid_point[0] - 100, mid_point[1])
                 break
         existing_texts.append(mid_point)
         draw.text(mid_point, edge.direction, fill="red")

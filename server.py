@@ -405,9 +405,6 @@ class InferRequest(BaseModel):
     min_lat: float
     max_lat: float
     
-class SceneDescription(BaseModel):
-    description: str
-    
 class GetTrajectoryRequest(BaseModel):
     llm_answers: str
     start_point: tuple
@@ -438,7 +435,7 @@ async def set_descriptions(request: Request):
     return {"message": "Descriptions set successfully"}
 
 @app.post("/scene_description")
-async def send_scene_description(scene_description: SceneDescription):
+async def send_scene_description():
     scene_description = navigator.get_scene_graph()
     return {"message": "Scene description sent successfully", "scene_description": scene_description}
 

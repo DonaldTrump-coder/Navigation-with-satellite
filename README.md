@@ -10,3 +10,6 @@ huggingface-cli download zai-org/GLM-OCR --local-dir ./Scenegraph_Generation/mod
 
 run on server:
 uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+
+loacl:
+python .\local\test_img.py

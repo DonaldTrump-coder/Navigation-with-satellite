@@ -70,6 +70,7 @@ class SceneGraphNavigator:
         self.generator.load_state_dict(generator_state_dict)
         self.generator.eval()
         self.generator.inferring = True
+        print("initialized!")
         
     def infer(self, img: np.ndarray, min_lon, max_lon, min_lat, max_lat):
         img = Image.fromarray(img)
@@ -117,7 +118,7 @@ class SceneGraphNavigator:
         offsets = offsets.detach().cpu().numpy()
         generated_ids = generated_ids.detach().cpu()
         self.texts = self.text_processor.tokenizer.batch_decode(generated_ids, skip_special_tokens=True) # texts list
-        texts = [text.replace("\n", "").replace("_", "") for text in texts]
+        self.texts = [text.replace("\n", "").replace("_", "") for text in self.texts]
         
         self.x_center_original = []
         self.y_center_original = []

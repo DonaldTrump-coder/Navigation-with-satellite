@@ -1,5 +1,5 @@
 import rasterio
-from local.tools import send_img, get_patches, send_descriptions, get_scene_graph, get_trajectory
+from tools import send_img, get_patches, send_descriptions, get_scene_graph, get_trajectory
 from PIL import Image
 
 def main():

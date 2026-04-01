@@ -5,7 +5,7 @@ import numpy as np
 import rasterio
 import pickle
 
-base_url = "http://0.0.0.1:8000" # url of the server
+base_url = "http://localhost:8000" # url of the server
 def send_img(tif_path: str):
     with rasterio.open(tif_path) as src:
         img = src.read()

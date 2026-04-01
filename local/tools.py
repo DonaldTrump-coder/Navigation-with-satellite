@@ -57,5 +57,12 @@ def get_trajectory(llm_answers, start_point, survey_areas):
     }
     url = base_url + "/get_trajectory"
     response = requests.get(url, json=data)
-    traj_points = pickle.loads(response.content)
+    data = response.json()["traj_points"]
+    traj_points = [Traj_Point(**p) for p in data]
     return traj_points
+
+class Traj_Point:
+    def __init__(self, kind, x, y):
+        self.kind = kind
+        self.x = x
+        self.y = y

@@ -389,6 +389,13 @@ class Traj_Point:
         self.x = x
         self.y = y
     
+    def to_dict(self):
+        return {
+            "kind": self.kind,
+            "x": self.x,
+            "y": self.y
+        }
+    
 from fastapi import FastAPI, Response, Request
 from pydantic import BaseModel
 import base64
@@ -445,5 +452,4 @@ async def get_trajectory(request: GetTrajectoryRequest):
     start_point = request.start_point
     survey_areas = request.survey_areas
     traj_points = navigator.get_navigation_points(llm_answers, start_point, survey_areas)
-    traj_points = pickle.dumps(traj_points)
-    return Response(content=traj_points, media_type="application/octet-stream")
+    return {"traj_points": [p.to_dict() for p in traj_points]}

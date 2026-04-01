@@ -3,7 +3,7 @@ from tools import send_img, get_patches, send_descriptions, get_scene_graph, get
 from PIL import Image
 
 def main():
-    tif_path = "./data/Google/Changsha/112.922586488_28.164847797.tif"
+    tif_path = "./data/Google/Changsha/112.9340150175_28.154025894.tif"
     res = send_img(tif_path)
     print(res)
     patches, texts = get_patches()
@@ -24,9 +24,9 @@ def main():
     
     llm_answers = """Answer:
     Params: [[10, 1.1, 5, 1]]
-    Routes: [[0, 1, 2]]
+    Routes: [[4, 2, 3]]
     """
-    survey_areas = [[2]]
+    survey_areas = [[3]]
     traj = get_trajectory(llm_answers, start_point, survey_areas)
     print(traj)
     

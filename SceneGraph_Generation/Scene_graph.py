@@ -221,12 +221,12 @@ class SceneGraph:
         final_point = np.float64(final_point)
         direction = target_point - start_point
         flight_points = [start_point]
-        flying_point = start_point
+        flying_point = start_point.copy()
         for _ in range(times):
             flying_point += direction
-            flight_points.append(flying_point)
+            flight_points.append(flying_point.copy())
             flying_point += vertical_direction * interval
-            flight_points.append(flying_point)
+            flight_points.append(flying_point.copy())
             direction = -direction
         flight_points.append(final_point)
         

@@ -342,7 +342,6 @@ class SceneGraphNavigator:
                                                max_interval=max_interval,
                                                expand_rate=expand_rate
                                                )
-            print(flight_points)
             flight_points = insert_points(flight_points, flight_interval)
             for point in flight_points:
                 traj_points.append(Traj_Point("survey", point[0], point[1]))

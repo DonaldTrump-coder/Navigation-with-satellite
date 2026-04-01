@@ -26,7 +26,7 @@ def main():
     Params: [[10, 1.1, 5, 1]]
     Routes: [[0, 1, 2]]
     """
-    survey_areas = [2]
+    survey_areas = [[2]]
     traj = get_trajectory(llm_answers, start_point, survey_areas)
     print(traj)
     

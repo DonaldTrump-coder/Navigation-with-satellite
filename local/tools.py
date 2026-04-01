@@ -11,6 +11,7 @@ def send_img(tif_path: str):
         img = src.read()
         bounds = src.bounds
     img = np.transpose(img, (1, 2, 0))
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     _, buffer = cv2.imencode('.jpg', img)
     img_base64 = base64.b64encode(buffer).decode("utf-8")
     

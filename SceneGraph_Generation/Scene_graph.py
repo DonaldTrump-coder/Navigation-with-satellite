@@ -216,6 +216,9 @@ class SceneGraph:
             interval = dist / times
             vertical_direction = (final_point - start_point) / dist
             
+        start_point = np.float64(start_point)
+        target_point = np.float64(target_point)
+        final_point = np.float64(final_point)
         direction = target_point - start_point
         flight_points = [start_point]
         flying_point = start_point

@@ -65,7 +65,11 @@ class Entity_Generator(nn.Module):
         self.has_lora = False
         self.vector_dim = vector_dim
         self.feature_projection_head = nn.Sequential(
-            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536)
+            nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 1536),
+            nn.GELU(),
+            nn.Linear(1536, 2 * 1536),
+            nn.GELU(),
+            nn.Linear(2 * 1536, 1536)
         )
         self.language_model = ocrmodel.model.language_model
         if lora_config is not None:
@@ -81,8 +85,29 @@ class Entity_Generator(nn.Module):
             nn.Linear(2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024, 2)
         )
         self.max_length = max_length
+        self.query_n = 8
+        self.query_tokens = nn.Parameter(
+            torch.randn(self.query_n, 1536)
+        )
+        self.query_attention = nn.MultiheadAttention(embed_dim=1536, num_heads=8, batch_first=True)
         
         self.inferring = False # Inference mode
+    
+    def build_kv(self, feat):
+        # feat: [B, 1536]
+        kv = feat.unsqueeze(1)  # [B, 1, 1536]
+        return kv
+    
+    def build_query_tokens(self, feat):
+        batch_size = feat.size(0)
+        Q = self.query_tokens.unsqueeze(0).expand(batch_size, -1, -1) # [B, query_n, 1536]
+        KV = self.build_kv(feat)
+        out, _ = self.query_attention(
+            query=Q,
+            key=KV,
+            value=KV
+        )
+        return out # [B, query_n, 1536]
         
     def set_train_stage(self, stage = "stage1"):
         if stage == "stage1":
@@ -110,48 +135,53 @@ class Entity_Generator(nn.Module):
         lm_dtype = self.language_model.dtype
         entity_features = fused_entity_features # [batch, 2 * (vector_dim // 8 + 3 + 3 + 64) + 512 + 1024]
         
+        offsets = self.offset_head(entity_features) # [batch, 2]
+        features_embed = self.feature_projection_head(entity_features.to(lm_dtype)) # [batch, 1536]
+        features_embed = self.build_query_tokens(features_embed) # [batch, query_n, 1536]
+        
         if not self.inferring: # training and testing mode
             # training mode
-            offsets = self.offset_head(entity_features) # [batch, 2]
-            features_embed = self.feature_projection_head(entity_features.to(lm_dtype)) # [batch, 1536]
-            features_embed = features_embed.unsqueeze(1) # [batch, 1, 1536]
             input_embeds = self.language_model.embed_tokens(input_ids) # [batch, seq_len, 1536]
             input_embeds = torch.cat(
                 [features_embed, input_embeds[:, :-1, :]], 
                 dim=1
-            ) # [batch, seq_len, 1536]
+            ) # [batch, seq_len - 1 + query_n, 1536]
             
-            prefix_mask = torch.ones(input_ids.size(0), 1).to(device)
+            prefix_mask = torch.ones(input_ids.size(0), self.query_n).to(device)
             attention_mask = torch.cat(
                 [prefix_mask, attention_mask[:, :-1]],
                 dim=1
-            ) # [batch, seq_len]
+            ) # [batch, seq_len - 1 + query_n]
             
             outputs = self.language_model(
                 inputs_embeds=input_embeds,
                 attention_mask=attention_mask
             )
             hidden_states = outputs.last_hidden_state
-            logits = self.lm_head(hidden_states) # [batch, seq_len, vocab_size]
+            logits = self.lm_head(hidden_states) # [batch, seq_len - 1 + query_n, vocab_size]
+            labels = torch.full(
+                (logits.shape[0], self.query_n - 1),
+                -100,
+                device=labels.device
+            )
             
-            return logits, offsets
+            return logits, offsets, labels
         else:
             # inference mode
-            offsets = self.offset_head(entity_features) # [batch, 2]
-            features_embed = self.feature_projection_head(entity_features.to(lm_dtype))  # [batch, 1536]
-            features_embed = features_embed.unsqueeze(1)  # [batch, 1, 1536]
-            
             generated_ids = torch.empty((entity_features.size(0), 0), dtype=torch.long, device=device)
+            eos_id = self.language_model.config.eos_token_id
+            if isinstance(eos_id, list):
+                eos_id = eos_id[0]
             
             # generate for texts
             for _ in range(self.max_length):
                 if generated_ids.size(1) > 0:
                     input_embeds = self.language_model.embed_tokens(generated_ids)  # [batch, cur_len, 1536]
-                    input_embeds = torch.cat([features_embed, input_embeds], dim=1) # [batch, cur_len + 1, 1536]
+                    input_embeds = torch.cat([features_embed, input_embeds], dim=1) # [batch, cur_len + query_n, 1536]
                 else:
-                    input_embeds = features_embed # [batch, 1, 1536]
+                    input_embeds = features_embed # [batch, query_n, 1536]
                 
-                attention_mask = torch.ones(input_embeds.size()[:2], device=device)  # [batch, cur_len+1]
+                attention_mask = torch.ones(input_embeds.size()[:2], device=device)  # [batch, cur_len + query_n]
                 
                 outputs = self.language_model(inputs_embeds=input_embeds,
                                               attention_mask=attention_mask
@@ -159,9 +189,6 @@ class Entity_Generator(nn.Module):
                 next_token_logits = self.lm_head(outputs.last_hidden_state[:, -1, :])  # [batch, vocab_size]
                 next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)  # [batch, 1]
                 generated_ids = torch.cat([generated_ids, next_token], dim=1)
-                eos_id = self.language_model.config.eos_token_id
-                if isinstance(eos_id, list):
-                    eos_id = eos_id[0]
                 if (next_token.view(-1) == eos_id).all():
                     break
                 

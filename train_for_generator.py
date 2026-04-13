@@ -175,11 +175,12 @@ def main():
                 attention_masks = batch["attention_mask"].to(device)
                 labels = batch["labels"].to(device)
                 offset_labels = batch["offset"].to(device)
-                logits, offsets = model(fused_entity_features = fused_entity_features,
+                logits, offsets, addi_labels = model(fused_entity_features = fused_entity_features,
                                         input_ids = input_ids,
                                         attention_mask = attention_masks
                                         )
                     
+                labels = torch.cat([addi_labels, labels], dim=1)
                 # loss for logits
                 logits_loss = F.cross_entropy(
                     logits.reshape(-1, logits.size(-1)),
@@ -255,9 +256,10 @@ def main():
                     attention_masks = batch["attention_mask"].to(device)
                     labels = batch["labels"].to(device)
                     offset_labels = batch["offset"].to(device)
-                    logits, offsets = model(fused_entity_features=fused_entity_features,
+                    logits, offsets, addi_labels = model(fused_entity_features=fused_entity_features,
                                             input_ids=input_ids,
                                             attention_mask=attention_masks)
+                    labels = torch.cat([addi_labels, labels], dim=1)
                     logits_loss = F.cross_entropy(
                         logits.reshape(-1, logits.size(-1)),
                         labels.reshape(-1),

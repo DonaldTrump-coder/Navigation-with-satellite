@@ -91,7 +91,7 @@ class Patch_features_dataset_infer(Dataset):
         fused_entity_feature = self.fused_entity_features[idx]
         return fused_entity_feature
         
-class Patches_dataset(Dataset):
+class Patches_dataset(Dataset): # per Scene
     def __init__(self,
                  npy_path,
                  tif_path,
